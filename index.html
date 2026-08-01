@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-консультант по солнечным электростанциям</title>
+  <style>
+    /* ============================================
+       RESET & BASE
+       ============================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --text-muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --agent-bg: #f3f4f6;
+      --border: #e5e7eb;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%           { transform: translateY(-6px); }
+    }
+
+    .fade-in  { animation: fadeIn 0.35s ease-out both; }
+    .slide-up { animation: slideUp 0.4s ease-out both; }
+
+    /* ============================================
+       LAYOUT
+       ============================================ */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      flex-shrink: 0;
+      padding: 20px 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-icon svg {
+      width: 24px;
+      height: 24px;
+      color: #fff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .brand-text p {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: var(--transition);
+    }
+
+    .status.online .status-dot {
+      background: #22c55e;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status.online {
+      color: #15803d;
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+
+    /* Dashboard Grid */
+    .dashboard {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      padding: 20px 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        overflow-y: auto;
+      }
+      .sidebar {
+        max-height: 420px;
+      }
+    }
+
+    /* ============================================
+       CHAT AREA
+       ============================================ */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    /* Messages */
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 85%;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .message-user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message-agent {
+      align-self: flex-start;
+    }
+
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .message-user .message-avatar {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .message-agent .message-avatar {
+      background: #e5e7eb;
+      color: #4b5563;
+    }
+
+    .message-bubble {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message-user .message-bubble {
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-agent .message-bubble {
+      background: var(--agent-bg);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 14px 16px;
+      background: var(--agent-bg);
+      border-radius: var(--radius);
+      border-bottom-left-radius: 4px;
+      width: fit-content;
+    }
+
+    .typing-indicator span {
+      width: 7px;
+      height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    /* Chat Input */
+    .chat-input-area {
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .chat-input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .chat-input {
+      width: 100%;
+      min-height: 44px;
+      max-height: 140px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      font-family: inherit;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      transition: var(--transition);
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .chat-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .send-btn:active {
+      transform: translateY(0);
+    }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* ============================================
+       SIDEBAR & TABS
+       ============================================ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 14px 12px;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+    }
+
+    .tabs-content {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .tab-panel {
+      position: absolute;
+      inset: 0;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(10px);
+      transition: all 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .tab-panel.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+      position: relative;
+    }
+
+    /* Steps */
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 0;
+      position: relative;
+      opacity: 0.45;
+      transition: var(--transition);
+    }
+
+    .step-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 38px;
+      bottom: -4px;
+      width: 2px;
+      background: var(--border);
+      transition: var(--transition);
+    }
+
+    .step-item.active {
+      opacity: 1;
+    }
+
+    .step-item.active .step-circle {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    }
+
+    .step-item.active:not(:last-child)::before {
+      background: linear-gradient(to bottom, var(--accent), var(--border));
+    }
+
+    .step-item.completed {
+      opacity: 0.7;
+    }
+
+    .step-item.completed .step-circle {
+      background: #22c55e;
+      color: #fff;
+    }
+
+    .step-item.completed:not(:last-child)::before {
+      background: #22c55e;
+    }
+
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      transition: var(--transition);
+      z-index: 1;
+    }
+
+    .step-text {
+      padding-top: 5px;
+    }
+
+    .step-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .step-desc {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Result Panel */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      color: var(--text-muted);
+      gap: 12px;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      opacity: 0.4;
+    }
+
+    .empty-state p {
+      font-size: 0.85rem;
+    }
+
+    .result-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      animation: slideUp 0.4s ease-out;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-header-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .result-header-icon svg {
+      width: 20px;
+      height: 20px;
+      color: #fff;
+    }
+
+    .result-header h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .result-header .subtitle {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .result-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-row:last-child {
+      border-bottom: none;
+    }
+
+    .result-row-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .result-row-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .result-row-content {
+      flex: 1;
+    }
+
+    .result-row-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 2px;
+    }
+
+    .result-row-value {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    .lead-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .lead-badge.qualified {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .lead-badge.needs_info {
+      background: #fef9c3;
+      color: #854d0e;
+    }
+
+    .lead-badge.cold {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    /* Error message */
+    .error-message {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .error-message svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <!-- HEADER -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">
+          <!-- Sun Icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>AI-консультант по солнечным электростанциям</h1>
+          <p>Задайте вопрос, как если бы вы были покупателем</p>
+        </div>
+      </div>
+      <div class="status" id="serverStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Подключение...</span>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <div class="dashboard">
+      <!-- CHAT AREA -->
+      <div class="chat-area">
+        <div class="chat-messages" id="chatMessages">
+          <!-- Welcome message -->
+          <div class="message message-agent">
+            <div class="message-avatar">R</div>
+            <div class="message-bubble">
+              Привет! Я Sol — ваш AI-консультант по солнечным электростанциям. Расскажите, пожалуйста, о вашем доме и потребностях в электроэнергии, и я подберу для вас оптимальное решение.
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-wrapper">
+            <textarea
+              class="chat-input"
+              id="chatInput"
+              rows="1"
+              placeholder="Напишите сообщение..."
+              onkeydown="handleKeyDown(event)"
+              oninput="autoResize(this)"
+            ></textarea>
+          </div>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Отправить">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="tabs-header">
+          <button class="tab-btn active" id="tabSteps" onclick="switchTab('steps')">
+            <span>⚙️</span> Ход работы
+          </button>
+          <button class="tab-btn" id="tabResult" onclick="switchTab('result')">
+            <span>📊</span> Результат
+          </button>
+        </div>
+
+        <div class="tabs-content">
+          <!-- TAB: STEPS -->
+          <div class="tab-panel active" id="panelSteps">
+            <div class="steps-list" id="stepsList">
+              <div class="step-item" data-step="0">
+                <div class="step-circle">1</div>
+                <div class="step-text">
+                  <div class="step-title">Получен вопрос</div>
+                  <div class="step-desc">Анализ запроса клиента</div>
+                </div>
+              </div>
+              <div class="step-item" data-step="1">
+                <div class="step-circle">2</div>
+                <div class="step-text">
+                  <div class="step-title">Поиск в базе знаний</div>
+                  <div class="step-desc">Извлечение релевантной информации</div>
+                </div>
+              </div>
+              <div class="step-item" data-step="2">
+                <div class="step-circle">3</div>
+                <div class="step-text">
+                  <div class="step-title">Анализ параметров</div>
+                  <div class="step-desc">Определение потребностей клиента</div>
+                </div>
+              </div>
+              <div class="step-item" data-step="3">
+                <div class="step-circle">4</div>
+                <div class="step-text">
+                  <div class="step-title">Подбор решения</div>
+                  <div class="step-desc">Сопоставление с продуктами</div>
+                </div>
+              </div>
+              <div class="step-item" data-step="4">
+                <div class="step-circle">5</div>
+                <div class="step-text">
+                  <div class="step-title">Генерация ответа</div>
+                  <div class="step-desc">Формирование персонализированного ответа</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: RESULT -->
+          <div class="tab-panel" id="panelResult">
+            <div class="empty-state" id="emptyState">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              <p>Здесь появится анализ лида<br>после получения ответа от агента</p>
+            </div>
+            <div id="resultContent" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================
+       CONFIGURATION
+       ============================================ */
+    // Измените URL на ваш прокси-сервер
+    const PROXY_URL = 'http://localhost:8000/chat';
+    const HEALTH_URL = 'http://localhost:8000/health';
+
+    /* ============================================
+       STATE
+       ============================================ */
+    let conversationId = '';
+    let isProcessing = false;
+    let stepAnimationTimer = null;
+
+    /* ============================================
+       DOM REFERENCES
+       ============================================ */
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const serverStatus = document.getElementById('serverStatus');
+    const statusText = document.getElementById('statusText');
+    const stepsList = document.getElementById('stepsList');
+    const emptyState = document.getElementById('emptyState');
+    const resultContent = document.getElementById('resultContent');
+
+    /* ============================================
+       INITIALIZATION
+       ============================================ */
+    document.addEventListener('DOMContentLoaded', () => {
+      // Сначала показываем "Подключение...", затем через 2 сек проверяем статус
+      setTimeout(() => {
+        checkServerStatus();
+      }, 2000);
+
+      // Периодическая проверка статуса каждые 10 секунд
+      setInterval(checkServerStatus, 10000);
+
+      // Фокус на поле ввода
+      chatInput.focus();
+    });
+
+    /* ============================================
+       SERVER STATUS
+       ============================================ */
+    async function checkServerStatus() {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(HEALTH_URL, {
+          method: 'GET',
+          signal: controller.signal,
+          mode: 'cors'
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          serverStatus.classList.add('online');
+          statusText.textContent = 'Онлайн';
+        } else {
+          throw new Error('Server error');
+        }
+      } catch (err) {
+        serverStatus.classList.remove('online');
+        statusText.textContent = 'Подключение...';
+      }
+    }
+
+    /* ============================================
+       CHAT INPUT
+       ============================================ */
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 140);
+      textarea.style.height = newHeight + 'px';
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    /* ============================================
+       MESSAGE SENDING
+       ============================================ */
+    async function sendMessage() {
+      const text = chatInput.value.trim();
+      if (!text || isProcessing) return;
+
+      isProcessing = true;
+      sendBtn.disabled = true;
+      sendBtn.style.opacity = '0.5';
+
+      // 1. Добавляем сообщение пользователя
+      addMessage(text, 'user');
+
+      // 2. Очищаем поле ввода
+      chatInput.value = '';
+      chatInput.style.height = 'auto';
+
+      // 3. Показываем индикатор "печатает..."
+      const typingId = showTypingIndicator();
+
+      // 4. Запускаем анимацию шагов
+      resetSteps();
+      animateSteps();
+
+      // 5. Отправляем запрос на прокси
+      try {
+        const payload = {
+          query: text,
+          user: 'demo-user',
+          conversation_id: conversationId
+        };
+
+        const response = await fetch(PROXY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Сохраняем conversation_id
+        if (data.conversation_id) {
+          conversationId = data.conversation_id;
+        }
+
+        // Получаем текст ответа
+        const rawText = data.answer || data.text || data.message || data.response || '';
+        
+        // Убираем индикатор печати
+        removeTypingIndicator(typingId);
+
+        // Извлекаем JSON и очищаем текст
+        const jsonData = extractJSONFromResponse(rawText);
+        const cleanText = cleanTextFromJSON(rawText);
+
+        // Добавляем ответ агента в чат
+        addMessage(cleanText || 'Ответ получен.', 'agent');
+
+        // Если JSON найден — показываем результат
+        if (jsonData) {
+          showResult(jsonData);
+          switchTab('result');
+        }
+
+      } catch (err) {
+        removeTypingIndicator(typingId);
+        addErrorMessage('⚠️ Сервер временно недоступен. Попробуйте через минуту.');
+        console.error('Chat error:', err);
+      } finally {
+        isProcessing = false;
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        stopStepAnimation();
+      }
+    }
+
+    /* ============================================
+       MESSAGE RENDERING
+       ============================================ */
+    function addMessage(text, sender) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `message message-${sender} fade-in`;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = sender === 'user' ? 'U' : 'R';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+      bubble.textContent = text;
+
+      msgDiv.appendChild(avatar);
+      msgDiv.appendChild(bubble);
+      chatMessages.appendChild(msgDiv);
+
+      scrollToBottom();
+    }
+
+    function addErrorMessage(text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message message-agent fade-in';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = '!';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+      bubble.style.background = '#fef2f2';
+      bubble.style.color = '#991b1b';
+      bubble.style.border = '1px solid #fecaca';
+      bubble.textContent = text;
+
+      msgDiv.appendChild(avatar);
+      msgDiv.appendChild(bubble);
+      chatMessages.appendChild(msgDiv);
+
+      scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+      const id = 'typing-' + Date.now();
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message message-agent fade-in';
+      msgDiv.id = id;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = 'R';
+
+      const indicator = document.createElement('div');
+      indicator.className = 'typing-indicator';
+      indicator.innerHTML = '<span></span><span></span><span></span>';
+
+      msgDiv.appendChild(avatar);
+      msgDiv.appendChild(indicator);
+      chatMessages.appendChild(msgDiv);
+
+      scrollToBottom();
+      return id;
+    }
+
+    function removeTypingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    function scrollToBottom() {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    /* ============================================
+       STEP ANIMATION
+       ============================================ */
+    function resetSteps() {
+      const steps = stepsList.querySelectorAll('.step-item');
+      steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+      });
+    }
+
+    function animateSteps() {
+      const steps = stepsList.querySelectorAll('.step-item');
+      let current = 0;
+
+      // Сразу активируем первый шаг
+      if (steps[0]) steps[0].classList.add('active');
+
+      stepAnimationTimer = setInterval(() => {
+        if (current < steps.length - 1) {
+          // Помечаем текущий как completed
+          steps[current].classList.remove('active');
+          steps[current].classList.add('completed');
+
+          // Активируем следующий
+          current++;
+          steps[current].classList.add('active');
+        }
+      }, 1200);
+    }
+
+    function stopStepAnimation() {
+      if (stepAnimationTimer) {
+        clearInterval(stepAnimationTimer);
+        stepAnimationTimer = null;
+      }
+
+      // Помечаем все шаги как completed
+      const steps = stepsList.querySelectorAll('.step-item');
+      steps.forEach(step => {
+        step.classList.remove('active');
+        step.classList.add('completed');
+      });
+    }
+
+    /* ============================================
+       TAB SWITCHING
+       ============================================ */
+    function switchTab(tabName) {
+      const tabSteps = document.getElementById('tabSteps');
+      const tabResult = document.getElementById('tabResult');
+      const panelSteps = document.getElementById('panelSteps');
+      const panelResult = document.getElementById('panelResult');
+
+      if (tabName === 'steps') {
+        tabSteps.classList.add('active');
+        tabResult.classList.remove('active');
+        panelSteps.classList.add('active');
+        panelResult.classList.remove('active');
+      } else {
+        tabSteps.classList.remove('active');
+        tabResult.classList.add('active');
+        panelSteps.classList.remove('active');
+        panelResult.classList.add('active');
+      }
+    }
+
+    /* ============================================
+       JSON EXTRACTION
+       ============================================ */
+    function extractJSONFromResponse(text) {
+      if (!text) return null;
+
+      // Ищем JSON в markdown-блоке ```json ... ```
+      const regex = /```json\s*([\s\S]*?)\s*```/;
+      const match = text.match(regex);
+
+      if (match && match[1]) {
+        try {
+          return JSON.parse(match[1].trim());
+        } catch (e) {
+          console.warn('Failed to parse JSON from markdown block:', e);
+        }
+      }
+
+      // Fallback: ищем любой JSON-объект в тексте
+      const fallbackRegex = /\{[\s\S]*?"client_interest"[\s\S]*?\}/;
+      const fallbackMatch = text.match(fallbackRegex);
+
+      if (fallbackMatch) {
+        try {
+          return JSON.parse(fallbackMatch[0]);
+        } catch (e) {
+          console.warn('Failed to parse JSON from fallback:', e);
+        }
+      }
+
+      return null;
+    }
+
+    function cleanTextFromJSON(text) {
+      if (!text) return '';
+
+      // Удаляем markdown-блок ```json ... ```
+      let cleaned = text.replace(/```json\s*[\s\S]*?\s*```/g, '').trim();
+
+      // Удаляем лишние пустые строки в конце
+      cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+
+      return cleaned;
+    }
+
+    /* ============================================
+       RESULT RENDERING
+       ============================================ */
+    function showResult(data) {
+      emptyState.style.display = 'none';
+      resultContent.style.display = 'block';
+
+      const statusClass = data.lead_status || 'cold';
+      const statusLabel = {
+        'qualified': 'Квалифицированный',
+        'needs_info': 'Требует уточнения',
+        'cold': 'Холодный'
+      }[statusClass] || statusClass;
+
+      const icons = {
+        interest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+        region: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+        house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+        scenario: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+        product: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+        status: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+      };
+
+      const iconColors = [
+        'background: #fef3c7; color: #92400e;',
+        'background: #dbeafe; color: #1e40af;',
+        'background: #fce7f3; color: #9d174d;',
+        'background: #d1fae5; color: #065f46;',
+        'background: #ede9fe; color: #5b21b6;',
+        'background: #f3f4f6; color: #374151;'
+      ];
+
+      const rows = [
+        { label: 'Интерес клиента', value: data.client_interest || '—', icon: icons.interest },
+        { label: 'Регион', value: data.region || '—', icon: icons.region },
+        { label: 'Площадь дома', value: data.house_area || '—', icon: icons.house },
+        { label: 'Сценарий', value: data.scenario || '—', icon: icons.scenario },
+        { label: 'Рекомендуемый продукт', value: data.recommended_product || '—', icon: icons.product },
+        { label: 'Статус лида', value: `<span class="lead-badge ${statusClass}">${statusLabel}</span>`, icon: icons.status, isHtml: true }
+      ];
+
+      let rowsHtml = '';
+      rows.forEach((row, i) => {
+        rowsHtml += `
+          <div class="result-row slide-up" style="animation-delay: ${i * 0.06}s">
+            <div class="result-row-icon" style="${iconColors[i]}">
+              ${row.icon}
+            </div>
+            <div class="result-row-content">
+              <div class="result-row-label">${row.label}</div>
+              <div class="result-row-value">${row.isHtml ? row.value : escapeHtml(row.value)}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      resultContent.innerHTML = `
+        <div class="result-card slide-up">
+          <div class="result-header">
+            <div class="result-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <div>
+              <h3>Анализ лида</h3>
+              <div class="subtitle">Результат обработки запроса</div>
+            </div>
+          </div>
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
