@@ -517,14 +517,20 @@
 
       // 5. Запрос к прокси
       try {
-        const payload = { query: text, user: 'demo-user', conversation_id: conversationId };
+        const payload = {
+        inputs: {},                          // ← ОБЯЗАТЕЛЬНО для Dify
+        query: text,
+        user: 'demo-user',
+        response_mode: 'blocking',           // ← чтобы ждать полный ответ
+        conversation_id: conversationId || '' // ← пустая строка, не null
+        };
 
         const res = await fetch(PROXY_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-
+        
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
